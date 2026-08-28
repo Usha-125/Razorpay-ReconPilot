@@ -1,0 +1,9 @@
+record_id,true_match_id,exception_type,root_cause,expected_resolution,true_cash_impact,ground_truth_status
+PAY_42_281,,unexpected_adjustment,unexpected_adjustment,HUMAN_REVIEW,49181,injected
+PAY_42_162,,missing_ledger_entry,missing_ledger_entry,HUMAN_REVIEW,44107,injected
+PAY_42_68,,refund_timing_difference,refund_timing_difference,MONITOR,28066,injected
+PAY_42_286,,tax_variance,tax_variance,AUTO_RESOLVE,33516,injected
+PAY_42_365,,unexplained_anomaly,unexplained_anomaly,HUMAN_REVIEW,37652,injected
+PAY_42_274,,partial_settlement,partial_settlement,MONITOR,43115,injected
+PAY_42_155,,unexpected_adjustment,unexpected_adjustment,MONITOR,27160,injected
+PAY_42_407,,refund_timing_difference,refund_timing_difference,AUTO_RESOLVE,84739,injected
