@@ -1,5 +1,6 @@
 from typing import Dict, List
 from math import fabs
+import json
 
 from ..db import get_connection
 from ..config import classify_materiality, map_severity
@@ -66,7 +67,8 @@ def run_reconciliation(db_path: str = None) -> Dict:
             match_confidence DOUBLE,
             match_method VARCHAR,
             match_reasons VARCHAR,
-            candidate_count INTEGER
+            candidate_count INTEGER,
+            candidates_json VARCHAR
         );
         """
     )
@@ -80,6 +82,7 @@ def run_reconciliation(db_path: str = None) -> Dict:
             exception_type VARCHAR,
             financial_amount BIGINT,
             candidate_matches VARCHAR,
+            candidate_details VARCHAR,
             evidence_ids VARCHAR,
             root_cause VARCHAR,
             confidence DOUBLE,
