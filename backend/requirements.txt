@@ -4,3 +4,4 @@ pydantic>=1.10
 duckdb>=0.7.1
 polars>=0.18.0
 networkx>=3.0
+pytest>=7.0
