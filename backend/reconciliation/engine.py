@@ -2,6 +2,7 @@ from typing import Dict, List
 from math import fabs
 
 from ..db import get_connection
+from ..config import classify_materiality, map_severity
 
 
 DEFAULT_AMOUNT_TOLERANCE = 1  # absolute INR tolerance for level 3
@@ -89,6 +90,10 @@ def run_reconciliation(db_path: str = None) -> Dict:
         """
     )
 
+    # Clear previous run results to keep results idempotent per run
+    conn.execute("DELETE FROM matches;")
+    conn.execute("DELETE FROM exceptions;")
+
     # Load payments into Python for iteration
     payments = conn.execute("SELECT payment_id, order_id, amount, status, created_at FROM payments").fetchall()
     settlements = conn.execute(
@@ -141,9 +146,24 @@ def run_reconciliation(db_path: str = None) -> Dict:
         if not candidates:
             # No candidates -> exception
             exc_id = f"EX_{p.get('payment_id')}"
+            materiality = classify_materiality(p.get("amount"))
+            severity = map_severity(materiality, 0.0)
             conn.execute(
                 "INSERT INTO exceptions (exception_id, payment_id, severity, materiality, exception_type, financial_amount, candidate_matches, evidence_ids, root_cause, confidence, recommended_action, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                [exc_id, p.get("payment_id"), "MEDIUM", "UNKNOWN", "no_candidate", p.get("amount"), "0", "", "unknown", 0.0, "review", "open"],
+                [
+                    exc_id,
+                    p.get("payment_id"),
+                    severity,
+                    materiality,
+                    "no_candidate",
+                    p.get("amount"),
+                    "0",
+                    "",
+                    "unknown",
+                    0.0,
+                    "review",
+                    "open",
+                ],
             )
             exceptions.append(exc_id)
             continue
@@ -161,6 +181,9 @@ def run_reconciliation(db_path: str = None) -> Dict:
         )
 
         # Decide threshold actions and exceptions
+        # Determine materiality and severity
+        materiality = classify_materiality(p.get("amount"))
+        severity = map_severity(materiality, float(confidence))
         if confidence >= 0.95:
             matched += 1
         elif confidence >= 0.80:
@@ -168,14 +191,40 @@ def run_reconciliation(db_path: str = None) -> Dict:
             exc_id = f"EX_{p.get('payment_id')}"
             conn.execute(
                 "INSERT INTO exceptions (exception_id, payment_id, severity, materiality, exception_type, financial_amount, candidate_matches, evidence_ids, root_cause, confidence, recommended_action, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                [exc_id, p.get("payment_id"), "MEDIUM", "UNKNOWN", "ambiguous_candidates", p.get("amount"), str(len(candidates)), top[0]["settlement_id"], "ambiguous", float(confidence), "review", "open"],
+                [
+                    exc_id,
+                    p.get("payment_id"),
+                    severity,
+                    materiality,
+                    "ambiguous_candidates",
+                    p.get("amount"),
+                    str(len(candidates)),
+                    top[0]["settlement_id"],
+                    "ambiguous",
+                    float(confidence),
+                    "review",
+                    "open",
+                ],
             )
             exceptions.append(exc_id)
         else:
             exc_id = f"EX_{p.get('payment_id')}"
             conn.execute(
                 "INSERT INTO exceptions (exception_id, payment_id, severity, materiality, exception_type, financial_amount, candidate_matches, evidence_ids, root_cause, confidence, recommended_action, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                [exc_id, p.get("payment_id"), "HIGH", "UNKNOWN", "low_confidence_match", p.get("amount"), str(len(candidates)), top[0]["settlement_id"], "low_confidence", float(confidence), "escalate", "open"],
+                [
+                    exc_id,
+                    p.get("payment_id"),
+                    severity,
+                    materiality,
+                    "low_confidence_match",
+                    p.get("amount"),
+                    str(len(candidates)),
+                    top[0]["settlement_id"],
+                    "low_confidence",
+                    float(confidence),
+                    "escalate",
+                    "open",
+                ],
             )
             exceptions.append(exc_id)
 
